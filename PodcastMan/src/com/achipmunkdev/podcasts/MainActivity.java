@@ -18,7 +18,7 @@ import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.impl.
 import com.google.code.rome.android.repackaged.com.sun.syndication.io.FeedException;
 
 public class MainActivity extends Activity {
-	//check for pushing support
+	
 	public FeedListAdapter feedToListAdapter;
 	public ListView mainListView;
 	public SyndFeed aFeed;
