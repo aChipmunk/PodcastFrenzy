@@ -1,4 +1,4 @@
-PodcastMan
+PodcastFrenzy
 ==========
 
 A simple podcast manager for android (in early dev stages)
