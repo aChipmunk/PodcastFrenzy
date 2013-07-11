@@ -50,10 +50,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         
         mainListView = (ListView) findViewById(R.id.main_list);
-        
-        //feedToListAdapter = new FeedListAdapter(MainActivity.this);
-        //mainListView.setAdapter(feedToListAdapter);
-        //new NetworkTime().execute();
+
         getView(MainActivity.this, feedUrl1);
         
     }
