@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
+        //test
         mainListView = (ListView) findViewById(R.id.main_list);
         
         getView(MainActivity.this, feedUrl1);
