@@ -24,6 +24,7 @@ import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
 import android.content.DialogInterface;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.achipmunkdev.podcasts.FeedListAdapter;
@@ -134,7 +135,7 @@ public class MainActivity extends Activity {
     				@Override
     				public void onClick(DialogInterface dialog, int id){
     					feedUrl1 = urlEditText.getText().toString();
-    					AddNewFeed(feedUrl1);
+    					new CheckFeedExistanceThenAddFeed(feedUrl1).execute(feedUrl1);
     					urlEditText.setText("");
     					dialog.dismiss();
     				}
@@ -153,34 +154,7 @@ public class MainActivity extends Activity {
     	//}
     	
     }
-    public void AddNewFeed(final String url){
-    	final class AddNewFeedTask extends AsyncTask<String, Void, SyndFeed> {
-    		@Override
-    		protected SyndFeed doInBackground(String...urls) {
-    			try {
-    				return retrieveFeed(urls[0]);
-    				
-    			} catch (Exception e) {
-    				return null;
-    			}
-    		}
-    		@Override
-    		protected void onPostExecute(SyndFeed result) {
-    			if (result != null){
-    				WriteFeedUrlToDatabase(url, result.getTitle());
-    				feedToListAdapter = new FeedListAdapter(MainActivity.this, result);
-    				mainListView.setAdapter(feedToListAdapter);
-    				GetAndWriteEntriesToDatabase(url);
-    				
-    			}
-    			else{
-    				Toast.makeText(MainActivity.this, "bad url, try again", Toast.LENGTH_LONG).show();
-    			}
-    		}
-    	}
-    	new AddNewFeedTask().execute(url);
-    }
-    public void WriteFeedUrlToDatabase(final String url, final String FeedTitle){
+    public void WriteFeedUrlToDatabase(final ContentValues feedValues){
     	final class WriteFeedUrlToDatabaseTask extends AsyncTask<String, Void, SQLiteDatabase> {
 			@Override
 			protected SQLiteDatabase doInBackground(String... params) {			
@@ -189,22 +163,14 @@ public class MainActivity extends Activity {
 			}
     		@Override
     		protected void onPostExecute(SQLiteDatabase ListOfFeeds){
-    			
-    			ContentValues FeedUrlValue = new ContentValues();
-    			FeedUrlValue.put(Constants.COLUMN_NAME_FEED_URL, url);
-    			//FeedUrlValue.put(Constants.COLUMN_NAME_TITLE, FeedTitle);
-			
-    			ListOfFeeds.insert(Constants.USER_ADDED_FEEDS, null, FeedUrlValue);
+    			ListOfFeeds.insert(Constants.USER_ADDED_FEEDS, null, feedValues);
     			Toast.makeText(MainActivity.this, "Feed Add Successful", Toast.LENGTH_LONG).show();
     		}
     	}
     	new WriteFeedUrlToDatabaseTask().execute();
     }
     public void GetAndWriteEntriesToDatabase(String theUrl){
-    	//ContentValues values = new ContentValues();
-    	//final SyndFeed feedToBeWritten = null;
-    	
-    	
+
     	final class GetEntries extends AsyncTask<String, Void, SyndFeed> {
 			@Override
 			protected SyndFeed doInBackground(String... url) {
@@ -257,12 +223,79 @@ public class MainActivity extends Activity {
 			if (result != null){
 				try{
 					result.insert(Constants.TABLE_NAME_ENTRIES, null, InputValues);
-					
-					Toast.makeText(MainActivity.this, "Entries Added", Toast.LENGTH_LONG).show();
+					//Toast.makeText(MainActivity.this, "Entries Added", Toast.LENGTH_LONG).show();
 				}
 				catch (Exception e){
 					Toast.makeText(MainActivity.this, "Problem Storing Entries! YIKES!", Toast.LENGTH_LONG).show();
 				}
+			}
+		}
+	}
+    final class CheckFeedExistanceThenAddFeed extends AsyncTask<String, Void, SQLiteDatabase>{
+    	String myUrl= null;
+    	CheckFeedExistanceThenAddFeed(String feedURL){
+    		myUrl = feedURL;
+    	}
+		@Override
+		protected SQLiteDatabase doInBackground(String... feedUrls) {
+			AddedFeedsDbHelper userFeedsHelper = new AddedFeedsDbHelper(getBaseContext());
+			return userFeedsHelper.getReadableDatabase();
+		}
+    	@Override
+    	protected void onPostExecute(SQLiteDatabase resultDb){
+    		String[] projection = {
+    				Constants.COLUMN_NAME_TITLE
+    		};
+    		Cursor dbCursor = resultDb.query(
+    				Constants.USER_ADDED_FEEDS,
+    				projection,
+    				Constants.COLUMN_NAME_FEED_URL + "=?",
+    				new String[] {myUrl},
+    				null,
+    				null,
+    				null
+    				);
+    		if(dbCursor!=null && dbCursor.getCount()>0){
+    			dbCursor.moveToFirst();
+    			Toast.makeText(MainActivity.this, "Feed" + dbCursor.getString(dbCursor.getColumnIndexOrThrow(Constants.COLUMN_NAME_TITLE)) + " is already added!" , Toast.LENGTH_LONG).show();
+    		}
+    		else{
+    			new AddNewFeedTask(myUrl).execute(myUrl);
+    		}
+    	}
+    }
+    final class AddNewFeedTask extends AsyncTask<String, Void, SyndFeed> {
+    	String url = null;
+    	AddNewFeedTask(String feedURL){
+			url = feedURL;
+		}
+    	@Override
+		protected SyndFeed doInBackground(String...urls) {
+			try {
+				return retrieveFeed(urls[0]);
+				
+			} catch (Exception e) {
+				return null;
+			}
+		}
+		@Override
+		protected void onPostExecute(SyndFeed result) {
+			if (result != null){
+				ContentValues FeedUrlValue = new ContentValues();
+    			FeedUrlValue.put(Constants.COLUMN_NAME_FEED_URL, url);
+    			FeedUrlValue.put(Constants.COLUMN_NAME_TITLE, result.getTitle());
+    			if (result.getCategories()!= null && result.getCategories().size() > 0 ){
+    				FeedUrlValue.put(Constants.COLUMN_NAME_CATEGORY, result.getCategories().get( 0 ).toString());
+    			}
+    			
+				WriteFeedUrlToDatabase(FeedUrlValue);
+				feedToListAdapter = new FeedListAdapter(MainActivity.this, result);
+				mainListView.setAdapter(feedToListAdapter);
+				GetAndWriteEntriesToDatabase(url);
+				
+			}
+			else{
+				Toast.makeText(MainActivity.this, "bad url, try again", Toast.LENGTH_LONG).show();
 			}
 		}
 	}
