@@ -3,7 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="fill_parent"
     android:orientation="vertical" 
-    android:background="@drawable/card">
+    android:background="@drawable/card"
+    android:paddingLeft="5.0dip"
+    android:paddingRight="5.0dip"
+    android:clipToPadding="false">
     <TextView
        android:id="@+id/title"
        android:layout_width="fill_parent"

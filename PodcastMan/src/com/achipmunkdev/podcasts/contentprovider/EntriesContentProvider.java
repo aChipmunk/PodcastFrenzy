@@ -97,6 +97,7 @@ public class EntriesContentProvider extends ContentProvider {
 			String[] selectionArgs, String sortOrder) {
 		
 		SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
+		queryBuilder.setTables(Constants.TABLE_NAME_ENTRIES);
 		
 		int uriType = sURIMatcher.match(uri);
 		switch (uriType) {
@@ -110,7 +111,8 @@ public class EntriesContentProvider extends ContentProvider {
 		}
 		
 		SQLiteDatabase db = database.getWritableDatabase();
-		Cursor cursor = queryBuilder.query(db, projection, selection, selectionArgs, null, null, sortOrder);
+		Cursor cursor = queryBuilder.query(db, projection, selection, selectionArgs, null, null, sortOrder, null);
+		//Cursor cursor = db.query(Constants.TABLE_NAME_ENTRIES, projection, selection, selectionArgs, null, null, sortOrder);
 		cursor.setNotificationUri(getContext().getContentResolver(), uri);
 		return cursor;
 	}

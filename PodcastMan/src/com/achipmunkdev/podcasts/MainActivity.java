@@ -2,8 +2,11 @@ package com.achipmunkdev.podcasts;
 
 import java.io.IOException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Iterator;
 
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Activity;
@@ -21,6 +24,8 @@ import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+import android.widget.SimpleCursorAdapter.ViewBinder;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.achipmunkdev.podcasts.R;
@@ -49,11 +54,12 @@ import com.google.code.rome.android.repackaged.com.sun.syndication.io.FeedExcept
 
 public class MainActivity extends ListActivity  implements LoaderManager.LoaderCallbacks<Cursor>{
 	
+	private LoaderManager.LoaderCallbacks<Cursor> mCallbacks;
+	private Uri entriesURI;
 	private SimpleCursorAdapter adapter;
 	EditText urlEditText = null;
 	private static final int DIALOG_ALERT = 1;
 	public FeedListAdapter feedToListAdapter;
-	public ListView mainListView;
 	public SyndFeed aFeed;
 	public String feedUrl1 = "http://feeds.wnyc.org/radiolab?format=xml";
 	
@@ -63,6 +69,10 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
         setContentView(R.layout.activity_main);
         //mainListView = (ListView) findViewById(R.id.list);
         registerForContextMenu(getListView());
+        
+        mCallbacks = this;
+        LoaderManager lm = getLoaderManager();
+        lm.initLoader(0, null, mCallbacks);
         //getView(MainActivity.this, feedUrl1); 
         fillData();
     }
@@ -84,53 +94,33 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     		//startActivity(new Intent(this, AddFeedActivity.class));
     		return true;
     	case R.id.action_refresh:
-    		getView(MainActivity.this, feedUrl1);
-    		
+    		//getView(MainActivity.this, feedUrl1);
+    		fillData();
     	}
     	return false;
     }
     private void fillData(){
-    	String[] from = new String[]{Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
-    	
     	adapter = new SimpleCursorAdapter(this, R.layout.entries_item, null, 
     			new String[]{Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION}, 
     			new int[] { R.id.title, R.id.author, R.id.date, R.id.desc }, 0);
-    	
-    	setListAdapter(adapter);
-    	getLoaderManager().initLoader(0, null, this);
-    }
-    public void getView(final Activity activity, String url){
-    	
-    	final class ShowFeedFromUrl extends AsyncTask<String, Void, SyndFeed> {
-    		
-    		@Override
-    		protected SyndFeed doInBackground(String...urls) {
-    			try {
-    				return retrieveFeed(urls[0]);
-    				//FeedListAdapter myListAdapter = new FeedListAdapter(MainActivity.this, aFeed);
-    				
-    				
-    			} catch (Exception e) {
-    				return null;
-    				//throw new RuntimeException(e);
-    				//return null;
-    			}
-    		}
-    		@Override
-    		protected void onPostExecute(SyndFeed result) {
-    			if (result != null){
-    				feedToListAdapter = new FeedListAdapter(activity, result);
-    				mainListView.setAdapter(feedToListAdapter);
+    	adapter.setViewBinder(new ViewBinder() {
+    		public boolean setViewValue(View aView, Cursor aCursor, int aColumnIndex){
+    			if (aColumnIndex == 3){
+    				Long UTCDate = aCursor.getLong(aColumnIndex);
+    				TextView dateTextView = (TextView) aView;
+    				String readableDate = new SimpleDateFormat("yyy-MM-dd").format(new Date(UTCDate));
+    				dateTextView.setText("Date: " + readableDate);
+    				return true;
     			}
     			else{
-    				Toast.makeText(activity, "bad url, try again", Toast.LENGTH_LONG).show();
+    				return false;
     			}
     		}
-    	}
-    	new ShowFeedFromUrl().execute(url);
-    	
-    	
+    	});
+    	setListAdapter(adapter);
+    	//getLoaderManager().initLoader(0, null, this);
     }
+
     private SyndFeed retrieveFeed( final String feedUrl )
 	        throws IOException, FeedException, FetcherException
 	    {
@@ -212,42 +202,14 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 						EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, entry.getLink());
 						EntryValues.put(Constants.COLUMN_NAME_MEDIA_TYPE, entry.getUri());
 						
-						new WriteEntrytoDatabase(EntryValues).execute();
+						entriesURI = getContentResolver().insert(EntriesContentProvider.CONTENT_URI, EntryValues);
+						//new WriteEntrytoDatabase(EntryValues).execute();
 					}
 				}
 			}	
     	}
     	new GetEntries().execute(theUrl);
     }
-    final class WriteEntrytoDatabase extends AsyncTask<SyndEntry, Void, SQLiteDatabase> {
-		ContentValues InputValues = new ContentValues();
-		public WriteEntrytoDatabase(ContentValues values) {
-			InputValues = values;
-		}
-
-		@Override
-		protected SQLiteDatabase doInBackground(SyndEntry... entry) {
-			FeedStoreageDbHelper userFeedsHelper = new FeedStoreageDbHelper(getBaseContext());
-			try{
-				return userFeedsHelper.getWritableDatabase();
-			}
-			catch (Exception e){
-				return null;
-			}
-		}
-		@Override
-		protected void onPostExecute(SQLiteDatabase result){
-			if (result != null){
-				try{
-					result.insert(Constants.TABLE_NAME_ENTRIES, null, InputValues);
-					//Toast.makeText(MainActivity.this, "Entries Added", Toast.LENGTH_LONG).show();
-				}
-				catch (Exception e){
-					Toast.makeText(MainActivity.this, "Problem Storing Entries! YIKES!", Toast.LENGTH_LONG).show();
-				}
-			}
-		}
-	}
     final class CheckFeedExistanceThenAddFeed extends AsyncTask<String, Void, SQLiteDatabase>{
     	String myUrl= null;
     	CheckFeedExistanceThenAddFeed(String feedURL){
@@ -306,8 +268,8 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     			}
     			
 				WriteFeedUrlToDatabase(FeedUrlValue);
-				feedToListAdapter = new FeedListAdapter(MainActivity.this, result);
-				mainListView.setAdapter(feedToListAdapter);
+				//feedToListAdapter = new FeedListAdapter(MainActivity.this, result);
+				//mainListView.setAdapter(feedToListAdapter);
 				GetAndWriteEntriesToDatabase(url);
 				
 			}
