@@ -9,13 +9,18 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.ContentValues;
+import android.content.CursorLoader;
 import android.content.Intent;
+import android.content.Loader;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.SimpleCursorAdapter;
 import android.widget.Toast;
 
 import com.achipmunkdev.podcasts.R;
@@ -23,15 +28,18 @@ import com.achipmunkdev.podcasts.R;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
+import android.app.ListActivity;
 import android.content.DialogInterface;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.app.LoaderManager;
 
 import com.achipmunkdev.podcasts.FeedListAdapter;
 import com.achipmunkdev.podcasts.DatabaseConstants.Constants;
 import com.achipmunkdev.podcasts.FeedRetriever;
 import com.achipmunkdev.podcasts.AddedFeedsDbHelper;
 import com.achipmunkdev.podcasts.FeedStoreageDbHelper;
+import com.achipmunkdev.podcasts.contentprovider.EntriesContentProvider;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndEntry;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndFeed;
 import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.FeedFetcher;
@@ -39,8 +47,9 @@ import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.Fetch
 import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.impl.HttpURLFeedFetcher;
 import com.google.code.rome.android.repackaged.com.sun.syndication.io.FeedException;
 
-public class MainActivity extends Activity {
+public class MainActivity extends ListActivity  implements LoaderManager.LoaderCallbacks<Cursor>{
 	
+	private SimpleCursorAdapter adapter;
 	EditText urlEditText = null;
 	private static final int DIALOG_ALERT = 1;
 	public FeedListAdapter feedToListAdapter;
@@ -52,11 +61,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
-        mainListView = (ListView) findViewById(R.id.main_list);
-
-        getView(MainActivity.this, feedUrl1);
-        
+        //mainListView = (ListView) findViewById(R.id.list);
+        registerForContextMenu(getListView());
+        //getView(MainActivity.this, feedUrl1); 
+        fillData();
     }
 
 
@@ -81,7 +89,16 @@ public class MainActivity extends Activity {
     	}
     	return false;
     }
-    
+    private void fillData(){
+    	String[] from = new String[]{Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
+    	
+    	adapter = new SimpleCursorAdapter(this, R.layout.entries_item, null, 
+    			new String[]{Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION}, 
+    			new int[] { R.id.title, R.id.author, R.id.date, R.id.desc }, 0);
+    	
+    	setListAdapter(adapter);
+    	getLoaderManager().initLoader(0, null, this);
+    }
     public void getView(final Activity activity, String url){
     	
     	final class ShowFeedFromUrl extends AsyncTask<String, Void, SyndFeed> {
@@ -298,5 +315,24 @@ public class MainActivity extends Activity {
 				Toast.makeText(MainActivity.this, "bad url, try again", Toast.LENGTH_LONG).show();
 			}
 		}
+	}
+	@Override
+	public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+		String[] projection = new String[]{Constants._ID, Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
+    	CursorLoader cursorLoader = new CursorLoader(this, EntriesContentProvider.CONTENT_URI, projection, null, null, null);
+    	return cursorLoader;
+	}
+
+
+	@Override
+	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+		adapter.swapCursor(data);
+	}
+
+
+	@Override
+	public void onLoaderReset(Loader<Cursor> loader) {
+		adapter.swapCursor(null);
+		
 	}
 }

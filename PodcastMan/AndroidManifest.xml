@@ -6,7 +6,7 @@
     
 	<uses-permission android:name="android.permission.INTERNET" />
     <uses-sdk
-        android:minSdkVersion="11"
+        android:minSdkVersion="14"
         android:targetSdkVersion="17" />
 
     <application
@@ -28,6 +28,9 @@
             android:title="@string/add_feed"
             android:theme="@android:style/Theme.Holo.Dialog">            
         </activity>
+        <provider 
+            android:name=".contentprovider.EntriesContentProvider"
+            android:authorities="com.achipmunkdev.podcasts.contentprovider"></provider>
     </application>
 
 </manifest>
