@@ -15,7 +15,7 @@ public class DatabaseConstants {
 		public static final String COLUMN_NAME_AUTHOR = "author";
 		public static final String COLUMN_NAME_CONTENT_URL = "url";
 		public static final String COLUMN_NAME_FEED_URL = "feedurl";
-		public static final String COLUMN_NAME_MEDIA_TYPE = "mediatype";
+		public static final String COLUMN_NAME_MEDIA_TYPE = "mediatype"; 
 		public static final String COMMA_SEP = ",";
 		public static final String TEXT_TYPE = " TEXT";
 		public static final String INT_TYPE = " INTEGER";
