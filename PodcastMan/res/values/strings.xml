@@ -11,4 +11,6 @@
 	<string name="submit_button_text">Submit</string>
 	<string name="cancle_button_text">Cancle</string>
 	<string name="nothing_here">There does not seem to be anything here! Try to refresh.</string>
+	<string name="drawer_open">My Feeds</string>
+	<string name="drawer_close">Close</string>
 </resources>

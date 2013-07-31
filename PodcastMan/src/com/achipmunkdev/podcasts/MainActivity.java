@@ -3,8 +3,10 @@ package com.achipmunkdev.podcasts;
 import java.io.IOException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.Locale;
 
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -15,12 +17,15 @@ import android.content.ContentValues;
 import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
+import android.support.v4.app.ActionBarDrawerToggle;
+import android.support.v4.widget.DrawerLayout;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
@@ -35,15 +40,13 @@ import android.app.AlertDialog.Builder;
 import android.app.Dialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.app.LoaderManager;
 
-import com.achipmunkdev.podcasts.FeedListAdapter;
 import com.achipmunkdev.podcasts.DatabaseConstants.Constants;
-import com.achipmunkdev.podcasts.FeedRetriever;
 import com.achipmunkdev.podcasts.AddedFeedsDbHelper;
-import com.achipmunkdev.podcasts.FeedStoreageDbHelper;
 import com.achipmunkdev.podcasts.contentprovider.EntriesContentProvider;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndEntry;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndFeed;
@@ -59,24 +62,53 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 	private SimpleCursorAdapter adapter;
 	EditText urlEditText = null;
 	private static final int DIALOG_ALERT = 1;
-	public FeedListAdapter feedToListAdapter;
 	public SyndFeed aFeed;
-	public String feedUrl1 = "http://feeds.wnyc.org/radiolab?format=xml";
 	
+	private DrawerLayout mDrawerLayout;
+	private ActionBarDrawerToggle mDrawerToggle;
+    private ListView mDrawerList;
+    private ArrayList<String> listOfFeeds = new ArrayList<String>();;
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        //mainListView = (ListView) findViewById(R.id.list);
         registerForContextMenu(getListView());
         
         mCallbacks = this;
         LoaderManager lm = getLoaderManager();
         lm.initLoader(0, null, mCallbacks);
-        //getView(MainActivity.this, feedUrl1); 
         fillData();
-    }
+        //listOfFeeds.add("fioogle");
+        //String[] arrayOfFeeds = (String[]) listOfFeeds.toArray();
+        
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mDrawerList = (ListView) findViewById(R.id.left_drawer);
+        mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout, R.drawable.ic_drawer, R.string.drawer_open, R.string.drawer_close){
+        	public void onDrawerClosed(View view){
+        		getActionBar().setTitle(R.string.app_name);
+        	}
+        	public void onDrawerOpened(View drawerView){
+        		getActionBar().setTitle(R.string.drawer_open);
+        	}
+        };
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
 
+        getActionBar().setDisplayHomeAsUpEnabled(true);
+        getActionBar().setHomeButtonEnabled(true);
+        new distinctFeedQuery().execute(new String[]{"foo"});
+    }
+    @Override
+    protected void onPostCreate(Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+        // Sync the toggle state after onRestoreInstanceState has occurred.
+        mDrawerToggle.syncState();
+    }
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        mDrawerToggle.onConfigurationChanged(newConfig);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -86,18 +118,18 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     }
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
+    	if (mDrawerToggle.onOptionsItemSelected(item)) {
+            return true;
+        }
     	switch (item.getItemId()){
     	case R.id.action_add_feed:
     		showDialog(DIALOG_ALERT);
-    		//startActivity(new Intent(this, AddFeedActivity.class));
-    		
-    		//startActivity(new Intent(this, AddFeedActivity.class));
     		return true;
     	case R.id.action_refresh:
-    		//getView(MainActivity.this, feedUrl1);
     		fillData();
+    	default:
+    		return super.onOptionsItemSelected(item);
     	}
-    	return false;
     }
     private void fillData(){
     	adapter = new SimpleCursorAdapter(this, R.layout.entries_item, null, 
@@ -108,7 +140,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     			if (aColumnIndex == 3){
     				Long UTCDate = aCursor.getLong(aColumnIndex);
     				TextView dateTextView = (TextView) aView;
-    				String readableDate = new SimpleDateFormat("yyy-MM-dd").format(new Date(UTCDate));
+    				String readableDate = new SimpleDateFormat("yyy-MM-dd", Locale.US).format(new Date(UTCDate));
     				dateTextView.setText("Date: " + readableDate);
     				return true;
     			}
@@ -141,8 +173,8 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     		builder.setPositiveButton(R.string.submit_button_text, new DialogInterface.OnClickListener(){
     				@Override
     				public void onClick(DialogInterface dialog, int id){
-    					feedUrl1 = urlEditText.getText().toString();
-    					new CheckFeedExistanceThenAddFeed(feedUrl1).execute(feedUrl1);
+    					String feedUrl = urlEditText.getText().toString();
+    					new CheckFeedExistanceThenAddFeed(feedUrl).execute(feedUrl);
     					urlEditText.setText("");
     					dialog.dismiss();
     				}
@@ -268,10 +300,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     			}
     			
 				WriteFeedUrlToDatabase(FeedUrlValue);
-				//feedToListAdapter = new FeedListAdapter(MainActivity.this, result);
-				//mainListView.setAdapter(feedToListAdapter);
 				GetAndWriteEntriesToDatabase(url);
-				
 			}
 			else{
 				Toast.makeText(MainActivity.this, "bad url, try again", Toast.LENGTH_LONG).show();
@@ -297,4 +326,40 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 		adapter.swapCursor(null);
 		
 	}
+	private void listFeeds(){
+		
+	}
+    final class distinctFeedQuery extends AsyncTask<String, Void, SQLiteDatabase>{
+		@Override
+		protected SQLiteDatabase doInBackground(String... selection) {
+			AddedFeedsDbHelper userFeedsHelper = new AddedFeedsDbHelper(getBaseContext());
+			return userFeedsHelper.getReadableDatabase();
+		}
+    	@Override
+    	protected void onPostExecute(SQLiteDatabase resultDb){
+    		new updateDrawer().execute(resultDb);
+    	}
+    }
+    final class updateDrawer extends AsyncTask<SQLiteDatabase, Void, Cursor>{
+    	@Override
+		protected Cursor doInBackground(SQLiteDatabase... db){
+    		//return db[0].rawQuery("SELECT " + Constants.COLUMN_NAME_TITLE + " FROM " + Constants.USER_ADDED_FEEDS, null);
+    		return db[0].query(Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_TITLE}, null, null, Constants.COLUMN_NAME_TITLE, null, null, null);
+    	}
+    	@Override
+    	protected void onPostExecute(Cursor dbCursor){
+    		if(dbCursor!=null && dbCursor.getCount()>0){
+    			dbCursor.moveToFirst();
+    			listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_TITLE)));
+    			for(dbCursor.moveToFirst(); dbCursor.moveToNext(); dbCursor.isAfterLast()){
+    				listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_TITLE)));
+    			}	
+    		}
+    		else{
+    			listOfFeeds.clear();
+    			listOfFeeds.add("No Feeds! Try adding some.");
+    		}
+        	mDrawerList.setAdapter(new ArrayAdapter<String>(MainActivity.this, R.layout.drawer_item, listOfFeeds));
+    	}
+    }
 }
