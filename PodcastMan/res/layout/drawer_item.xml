@@ -10,6 +10,5 @@
    android:paddingRight="16.0dip"
    android:text=""
    android:textColor="#EEEEEE"
-   android:textSize="16.0sp"
-   android:textStyle="bold" />
+   android:textSize="16.0sp"/>
 

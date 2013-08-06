@@ -57,8 +57,10 @@ import com.google.code.rome.android.repackaged.com.sun.syndication.io.FeedExcept
 
 public class MainActivity extends ListActivity  implements LoaderManager.LoaderCallbacks<Cursor>{
 	
+	private String entryQuerySelection = null;
+	private ArrayList<String> entryQuerySelectionArgs = new ArrayList<String>();
+	
 	private LoaderManager.LoaderCallbacks<Cursor> mCallbacks;
-	private Uri entriesURI;
 	private SimpleCursorAdapter adapter;
 	EditText urlEditText = null;
 	private static final int DIALOG_ALERT = 1;
@@ -67,7 +69,10 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 	private DrawerLayout mDrawerLayout;
 	private ActionBarDrawerToggle mDrawerToggle;
     private ListView mDrawerList;
-    private ArrayList<String> listOfFeeds = new ArrayList<String>();;
+    private ArrayList<String> listOfFeeds = new ArrayList<String>();
+    private Uri entriesURI = null;
+    
+    private LoaderManager lm = null;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,8 +81,9 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
         registerForContextMenu(getListView());
         
         mCallbacks = this;
-        LoaderManager lm = getLoaderManager();
+        lm = getLoaderManager();
         lm.initLoader(0, null, mCallbacks);
+        
         fillData();
         //listOfFeeds.add("fioogle");
         //String[] arrayOfFeeds = (String[]) listOfFeeds.toArray();
@@ -96,7 +102,9 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
-        new distinctFeedQuery().execute(new String[]{"foo"});
+        new distinctFeedQuery().execute();
+        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
+       
     }
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
@@ -126,21 +134,32 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     		showDialog(DIALOG_ALERT);
     		return true;
     	case R.id.action_refresh:
-    		fillData();
+    		lm.restartLoader(0, null, mCallbacks);
     	default:
     		return super.onOptionsItemSelected(item);
     	}
     }
+    
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        	TextView tv = (TextView)view.findViewById(R.id.simple_drawer_item);
+        	entryQuerySelectionArgs.add(tv.getText().toString());
+        	entryQuerySelection = Constants.COLUMN_NAME_FEED_TITLE + "= '" + tv.getText().toString() +"'" ;
+        	lm.restartLoader(0, null, mCallbacks);
+        	mDrawerLayout.closeDrawer(mDrawerList);
+        }
+    }
     private void fillData(){
     	adapter = new SimpleCursorAdapter(this, R.layout.entries_item, null, 
-    			new String[]{Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION}, 
+    			new String[]{Constants.COLUMN_NAME_ENTRY_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION}, 
     			new int[] { R.id.title, R.id.author, R.id.date, R.id.desc }, 0);
     	adapter.setViewBinder(new ViewBinder() {
     		public boolean setViewValue(View aView, Cursor aCursor, int aColumnIndex){
-    			if (aColumnIndex == 3){
+    			if (aColumnIndex == 4){
     				Long UTCDate = aCursor.getLong(aColumnIndex);
     				TextView dateTextView = (TextView) aView;
-    				String readableDate = new SimpleDateFormat("yyy-MM-dd", Locale.US).format(new Date(UTCDate));
+    				String readableDate = new SimpleDateFormat("MMM dd, yyyy", Locale.US).format(new Date(UTCDate));
     				dateTextView.setText("Date: " + readableDate);
     				return true;
     			}
@@ -226,7 +245,8 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 					for (Iterator i = result.getEntries().iterator(); i.hasNext();){
 						SyndEntry entry = (SyndEntry) i.next();
 						ContentValues EntryValues = new ContentValues();
-						EntryValues.put(Constants.COLUMN_NAME_TITLE, entry.getTitle());
+						EntryValues.put(Constants.COLUMN_NAME_ENTRY_TITLE, entry.getTitle());
+						EntryValues.put(Constants.COLUMN_NAME_FEED_TITLE, result.getTitle());
 						EntryValues.put(Constants.COLUMN_NAME_DESCRIPTION, entry.getDescription().getValue());
 						//EntryValues.put(Constants.COLUMN_NAME_CATAGORY, entry.getCategories().get(0).toString());
 						EntryValues.put(Constants.COLUMN_NAME_DATE, entry.getPublishedDate().getTime());
@@ -234,7 +254,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 						EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, entry.getLink());
 						EntryValues.put(Constants.COLUMN_NAME_MEDIA_TYPE, entry.getUri());
 						
-						entriesURI = getContentResolver().insert(EntriesContentProvider.CONTENT_URI, EntryValues);
+						Uri entriesURI = getContentResolver().insert(EntriesContentProvider.CONTENT_URI, EntryValues);
 						//new WriteEntrytoDatabase(EntryValues).execute();
 					}
 				}
@@ -255,7 +275,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     	@Override
     	protected void onPostExecute(SQLiteDatabase resultDb){
     		String[] projection = {
-    				Constants.COLUMN_NAME_TITLE
+    				Constants.COLUMN_NAME_FEED_TITLE
     		};
     		Cursor dbCursor = resultDb.query(
     				Constants.USER_ADDED_FEEDS,
@@ -268,7 +288,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     				);
     		if(dbCursor!=null && dbCursor.getCount()>0){
     			dbCursor.moveToFirst();
-    			Toast.makeText(MainActivity.this, "Feed" + dbCursor.getString(dbCursor.getColumnIndexOrThrow(Constants.COLUMN_NAME_TITLE)) + " is already added!" , Toast.LENGTH_LONG).show();
+    			Toast.makeText(MainActivity.this, "Feed" + dbCursor.getString(dbCursor.getColumnIndexOrThrow(Constants.COLUMN_NAME_FEED_TITLE)) + " is already added!" , Toast.LENGTH_LONG).show();
     		}
     		else{
     			new AddNewFeedTask(myUrl).execute(myUrl);
@@ -294,7 +314,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 			if (result != null){
 				ContentValues FeedUrlValue = new ContentValues();
     			FeedUrlValue.put(Constants.COLUMN_NAME_FEED_URL, url);
-    			FeedUrlValue.put(Constants.COLUMN_NAME_TITLE, result.getTitle());
+    			FeedUrlValue.put(Constants.COLUMN_NAME_FEED_TITLE, result.getTitle());
     			if (result.getCategories()!= null && result.getCategories().size() > 0 ){
     				FeedUrlValue.put(Constants.COLUMN_NAME_CATEGORY, result.getCategories().get( 0 ).toString());
     			}
@@ -309,24 +329,25 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 	}
 	@Override
 	public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-		String[] projection = new String[]{Constants._ID, Constants.COLUMN_NAME_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
-    	CursorLoader cursorLoader = new CursorLoader(this, EntriesContentProvider.CONTENT_URI, projection, null, null, null);
-    	return cursorLoader;
+		String[] projection = new String[]{Constants._ID, Constants.COLUMN_NAME_ENTRY_TITLE, Constants.COLUMN_NAME_FEED_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
+		//String[] selectionArgs = entryQuerySelectionArgs.toArray(new String[entryQuerySelectionArgs.size()]);
+		CursorLoader cursorLoader = new CursorLoader(this, EntriesContentProvider.CONTENT_URI, projection, entryQuerySelection, null, null);
+		return cursorLoader;
+
 	}
 
 
 	@Override
 	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
 		adapter.swapCursor(data);
+		adapter.notifyDataSetChanged();
 	}
 
 
 	@Override
 	public void onLoaderReset(Loader<Cursor> loader) {
 		adapter.swapCursor(null);
-		
-	}
-	private void listFeeds(){
+		adapter.notifyDataSetChanged();
 		
 	}
     final class distinctFeedQuery extends AsyncTask<String, Void, SQLiteDatabase>{
@@ -344,15 +365,15 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     	@Override
 		protected Cursor doInBackground(SQLiteDatabase... db){
     		//return db[0].rawQuery("SELECT " + Constants.COLUMN_NAME_TITLE + " FROM " + Constants.USER_ADDED_FEEDS, null);
-    		return db[0].query(Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_TITLE}, null, null, Constants.COLUMN_NAME_TITLE, null, null, null);
+    		return db[0].query(Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_FEED_TITLE}, null, null, Constants.COLUMN_NAME_FEED_TITLE, null, null, null);
     	}
     	@Override
     	protected void onPostExecute(Cursor dbCursor){
     		if(dbCursor!=null && dbCursor.getCount()>0){
     			dbCursor.moveToFirst();
-    			listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_TITLE)));
+    			listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_FEED_TITLE)));
     			for(dbCursor.moveToFirst(); dbCursor.moveToNext(); dbCursor.isAfterLast()){
-    				listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_TITLE)));
+    				listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_FEED_TITLE)));
     			}	
     		}
     		else{
