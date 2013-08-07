@@ -8,6 +8,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.Locale;
 
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -73,6 +75,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     private Uri entriesURI = null;
     
     private LoaderManager lm = null;
+
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -150,6 +153,27 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
         	mDrawerLayout.closeDrawer(mDrawerList);
         }
     }
+    @Override 
+    public void onListItemClick(ListView l, View v, int position, long id) {
+    	Uri singleEntryUri = Uri.parse(EntriesContentProvider.CONTENT_URI + "/" + id);
+    	Cursor cursor = getContentResolver().query(singleEntryUri, new String[]{Constants._ID, Constants.COLUMN_NAME_CONTENT_URL}, null, null, null);
+    	if (cursor.getCount() > 0 && cursor != null){
+    		cursor.moveToFirst();
+    		String url = cursor.getString(cursor.getColumnIndex(Constants.COLUMN_NAME_CONTENT_URL));
+    		MediaPlayer mediaPlayer = new MediaPlayer();
+    		mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+    		try{
+    			mediaPlayer.setDataSource(url);
+        		mediaPlayer.prepare();
+        		mediaPlayer.start();
+    		}
+    		catch (Exception e){
+    			Toast.makeText(MainActivity.this, "Sorry, that post could not be found", Toast.LENGTH_LONG).show();
+    		}
+    	}
+    	
+    }
+    
     private void fillData(){
     	adapter = new SimpleCursorAdapter(this, R.layout.entries_item, null, 
     			new String[]{Constants.COLUMN_NAME_ENTRY_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION}, 
@@ -328,14 +352,11 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 		}
 	}
 	@Override
-	public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+	public Loader<Cursor> onCreateLoader(int id, Bundle args) {		
 		String[] projection = new String[]{Constants._ID, Constants.COLUMN_NAME_ENTRY_TITLE, Constants.COLUMN_NAME_FEED_TITLE, Constants.COLUMN_NAME_AUTHOR, Constants.COLUMN_NAME_DATE, Constants.COLUMN_NAME_DESCRIPTION};
 		//String[] selectionArgs = entryQuerySelectionArgs.toArray(new String[entryQuerySelectionArgs.size()]);
-		CursorLoader cursorLoader = new CursorLoader(this, EntriesContentProvider.CONTENT_URI, projection, entryQuerySelection, null, null);
-		return cursorLoader;
-
+		return new CursorLoader(this, EntriesContentProvider.CONTENT_URI, projection, entryQuerySelection, null, null);
 	}
-
 
 	@Override
 	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
