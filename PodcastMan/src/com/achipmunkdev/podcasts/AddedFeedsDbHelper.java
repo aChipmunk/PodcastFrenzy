@@ -14,8 +14,7 @@ public class AddedFeedsDbHelper extends SQLiteOpenHelper{
 	public AddedFeedsDbHelper(Context context) {
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
 	}
-	
-    
+
     public void onCreate(SQLiteDatabase db){
     	//db.execSQL("CREATE TABLE " + Constants.TABLE_NAME_ENTRIES + " (" + Constants._ID + " INTEGER PRIMARY KEY," +
 		//		Constants.COLUMN_NAME_FEED_URL + Constants.TEXT_TYPE + 
@@ -26,7 +25,5 @@ public class AddedFeedsDbHelper extends SQLiteOpenHelper{
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion){
     	db.execSQL("DROP TABLE IF EXISTS Constants.USER_ADDED_FEEDS");
     	onCreate(db);
-    }
-	
-
+    }	
 }

@@ -13,4 +13,7 @@
 	<string name="nothing_here">There does not seem to be anything here! Try to refresh.</string>
 	<string name="drawer_open">My Feeds</string>
 	<string name="drawer_close">Close</string>
+	<string name="accesibility_rewind">rewind</string>
+	<string name="accesibility_forward">forward</string>
+	<string name="accesibility_play_pause">play pause</string>
 </resources>

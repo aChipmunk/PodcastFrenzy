@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:paddingBottom="25dip" >
+	<SeekBar
+	    android:id="@+id/seekbar"
+	    android:layout_width="match_parent"
+	    android:layout_height="wrap_content"
+	    android:paddingRight="25dip"
+	    android:paddingLeft="25dip"
+	    android:layout_alignParentTop="true" />
+	<ImageButton
+        android:id="@+id/play_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/seekbar"
+        android:background="#80FFFFFF"
+        android:src="@drawable/av_pause" 
+        android:contentDescription="@string/accesibility_play_pause"/>
+    <ImageButton
+        android:id="@+id/rewind"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toLeftOf="@id/play_pause"
+        android:layout_alignTop="@id/play_pause"
+        android:paddingRight="25dip"
+        android:background="#80FFFFFF"
+        android:src="@drawable/av_rewind"
+        android:contentDescription="@string/accesibility_rewind" />
+	<ImageButton
+        android:id="@+id/forward"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@id/play_pause"
+        android:layout_alignTop="@id/play_pause"
+        android:paddingLeft="25dip"
+        android:background="#80FFFFFF"
+        android:src="@drawable/av_fast_forward" 
+        android:contentDescription="@string/accesibility_forward"/>
+	
+
+	
+    
+</RelativeLayout>

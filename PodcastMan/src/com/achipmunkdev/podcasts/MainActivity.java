@@ -10,6 +10,7 @@ import java.util.Locale;
 
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.MediaPlayer.OnPreparedListener;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -25,7 +26,6 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -40,7 +40,8 @@ import com.achipmunkdev.podcasts.R;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
-import android.app.ListActivity;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.content.DialogInterface;
 import android.content.res.Configuration;
 import android.database.Cursor;
@@ -49,7 +50,10 @@ import android.app.LoaderManager;
 
 import com.achipmunkdev.podcasts.DatabaseConstants.Constants;
 import com.achipmunkdev.podcasts.AddedFeedsDbHelper;
+import com.achipmunkdev.podcasts.MediaControlsFragment.ButtonIds;
 import com.achipmunkdev.podcasts.contentprovider.EntriesContentProvider;
+import com.achipmunkdev.podcasts.MediaControlsFragment;
+import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndEnclosure;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndEntry;
 import com.google.code.rome.android.repackaged.com.sun.syndication.feed.synd.SyndFeed;
 import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.FeedFetcher;
@@ -57,7 +61,7 @@ import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.Fetch
 import com.google.code.rome.android.repackaged.com.sun.syndication.fetcher.impl.HttpURLFeedFetcher;
 import com.google.code.rome.android.repackaged.com.sun.syndication.io.FeedException;
 
-public class MainActivity extends ListActivity  implements LoaderManager.LoaderCallbacks<Cursor>{
+public class MainActivity extends Activity  implements LoaderManager.LoaderCallbacks<Cursor>, EntriesListFragment.OnDataPass, MediaControlsFragment.OnPassClick{
 	
 	private String entryQuerySelection = null;
 	private ArrayList<String> entryQuerySelectionArgs = new ArrayList<String>();
@@ -72,24 +76,27 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 	private ActionBarDrawerToggle mDrawerToggle;
     private ListView mDrawerList;
     private ArrayList<String> listOfFeeds = new ArrayList<String>();
-    private Uri entriesURI = null;
     
     private LoaderManager lm = null;
-
+    MediaPlayer mediaPlayer = new MediaPlayer();
+    
+    private EntriesListFragment entriesListFragment; 
+    
+    private MediaControlsFragment mediaControlFragment = new MediaControlsFragment();
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        registerForContextMenu(getListView());
+        
+        entriesListFragment = (EntriesListFragment) getFragmentManager().findFragmentById(R.id.listFragment);
+        
         
         mCallbacks = this;
         lm = getLoaderManager();
         lm.initLoader(0, null, mCallbacks);
         
         fillData();
-        //listOfFeeds.add("fioogle");
-        //String[] arrayOfFeeds = (String[]) listOfFeeds.toArray();
         
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerList = (ListView) findViewById(R.id.left_drawer);
@@ -105,9 +112,18 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
-        new distinctFeedQuery().execute();
+        //new distinctFeedQuery().execute();
         mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
-       
+        
+        mediaPlayer.setOnPreparedListener(new OnPreparedListener() {
+            @Override
+        	public void onPrepared(MediaPlayer mp) {
+                mp.start();
+            }
+        });
+        
+        
+        new distinctFeedQuery().execute();
     }
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
@@ -138,6 +154,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     		return true;
     	case R.id.action_refresh:
     		lm.restartLoader(0, null, mCallbacks);
+    		new distinctFeedQuery().execute();
     	default:
     		return super.onOptionsItemSelected(item);
     	}
@@ -153,22 +170,25 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
         	mDrawerLayout.closeDrawer(mDrawerList);
         }
     }
-    @Override 
-    public void onListItemClick(ListView l, View v, int position, long id) {
+    
+    @Override
+    public void onEntryListItemSelected(long id) {
     	Uri singleEntryUri = Uri.parse(EntriesContentProvider.CONTENT_URI + "/" + id);
-    	Cursor cursor = getContentResolver().query(singleEntryUri, new String[]{Constants._ID, Constants.COLUMN_NAME_CONTENT_URL}, null, null, null);
+    	Cursor cursor = this.getContentResolver().query(singleEntryUri, new String[]{Constants._ID, Constants.COLUMN_NAME_CONTENT_URL}, null, null, null);
     	if (cursor.getCount() > 0 && cursor != null){
     		cursor.moveToFirst();
     		String url = cursor.getString(cursor.getColumnIndex(Constants.COLUMN_NAME_CONTENT_URL));
-    		MediaPlayer mediaPlayer = new MediaPlayer();
+    		//mediaPlayer.create(this, Uri.parse(url));
     		mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
     		try{
     			mediaPlayer.setDataSource(url);
-        		mediaPlayer.prepare();
-        		mediaPlayer.start();
+    	        mediaPlayer.prepareAsync();
+    	        FragmentTransaction fragmentTransaction = getFragmentManager().beginTransaction();
+    	        fragmentTransaction.add(R.id.main_activity_linear_layout, mediaControlFragment);
+    	        fragmentTransaction.commit();
+    	        mediaControlFragment.setMediaPlaying(true);
     		}
     		catch (Exception e){
-    			Toast.makeText(MainActivity.this, "Sorry, that post could not be found", Toast.LENGTH_LONG).show();
     		}
     	}
     	
@@ -192,7 +212,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
     			}
     		}
     	});
-    	setListAdapter(adapter);
+    	entriesListFragment.setAdapter(adapter);
     	//getLoaderManager().initLoader(0, null, this);
     }
 
@@ -275,7 +295,9 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 						//EntryValues.put(Constants.COLUMN_NAME_CATAGORY, entry.getCategories().get(0).toString());
 						EntryValues.put(Constants.COLUMN_NAME_DATE, entry.getPublishedDate().getTime());
 						EntryValues.put(Constants.COLUMN_NAME_AUTHOR, entry.getAuthor());
-						EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, entry.getLink());
+						//EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, entry.getLink());
+						SyndEnclosure enc = (SyndEnclosure) entry.getEnclosures().get(0);
+						EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, enc.getUrl());
 						EntryValues.put(Constants.COLUMN_NAME_MEDIA_TYPE, entry.getUri());
 						
 						Uri entriesURI = getContentResolver().insert(EntriesContentProvider.CONTENT_URI, EntryValues);
@@ -360,6 +382,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 
 	@Override
 	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+		entriesListFragment.cursorUpdate(data);
 		adapter.swapCursor(data);
 		adapter.notifyDataSetChanged();
 	}
@@ -367,6 +390,7 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
 
 	@Override
 	public void onLoaderReset(Loader<Cursor> loader) {
+		entriesListFragment.cursorUpdate(null);
 		adapter.swapCursor(null);
 		adapter.notifyDataSetChanged();
 		
@@ -404,4 +428,27 @@ public class MainActivity extends ListActivity  implements LoaderManager.LoaderC
         	mDrawerList.setAdapter(new ArrayAdapter<String>(MainActivity.this, R.layout.drawer_item, listOfFeeds));
     	}
     }
+
+	@Override
+	public void OnMediaButtonClick(int id) {
+		
+		switch(id) {
+		case ButtonIds.FORWARD:
+			
+			break;
+		case ButtonIds.PLAYPAUSE:
+			if (mediaPlayer.isPlaying()){
+				mediaPlayer.pause();
+				mediaControlFragment.setMediaPlaying(false);
+			}
+			else{
+				mediaPlayer.start();
+				mediaControlFragment.setMediaPlaying(true);
+			}
+			break;
+		case ButtonIds.REWIND:
+			
+			break;
+		}
+	}
 }
