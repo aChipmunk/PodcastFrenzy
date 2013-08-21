@@ -3,13 +3,34 @@
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:paddingBottom="25dip" >
+	<TextView 
+	    android:id="@+id/curr_position"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignParentTop="true"
+	    android:layout_alignParentLeft="true"
+	    android:paddingLeft="25dip"
+	    android:paddingTop="0dip"
+	    android:text="00:00"
+	    android:textSize="14.5sp"/>
+	<TextView 
+	    android:id="@+id/max_position"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:layout_alignParentTop="true"
+	    android:layout_alignParentRight="true"
+	    android:paddingRight="25dip"
+	    android:paddingTop="0dip"
+	    android:text="00:00"
+	    android:textSize="14.5sp"/>
 	<SeekBar
 	    android:id="@+id/seekbar"
 	    android:layout_width="match_parent"
 	    android:layout_height="wrap_content"
 	    android:paddingRight="25dip"
 	    android:paddingLeft="25dip"
-	    android:layout_alignParentTop="true" />
+	    android:layout_below="@id/max_position" 
+	    android:layout_centerHorizontal="true"/>
 	<ImageButton
         android:id="@+id/play_pause"
         android:layout_width="wrap_content"
@@ -39,7 +60,7 @@
         android:background="#80FFFFFF"
         android:src="@drawable/av_fast_forward" 
         android:contentDescription="@string/accesibility_forward"/>
-	
+
 
 	
     

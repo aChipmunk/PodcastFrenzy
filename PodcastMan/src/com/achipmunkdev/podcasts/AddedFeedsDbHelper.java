@@ -23,7 +23,7 @@ public class AddedFeedsDbHelper extends SQLiteOpenHelper{
     	Log.w("PodFrenzy", "making sql table");
     }
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion){
-    	db.execSQL("DROP TABLE IF EXISTS Constants.USER_ADDED_FEEDS");
+    	db.execSQL("DROP TABLE IF EXISTS" + Constants.USER_ADDED_FEEDS);
     	onCreate(db);
-    }	
+    }
 }

@@ -10,7 +10,7 @@
     <string name="example_rss_url">http://www.example.com/rss.xml</string>
 	<string name="submit_button_text">Submit</string>
 	<string name="cancle_button_text">Cancle</string>
-	<string name="nothing_here">There does not seem to be anything here! Try to refresh.</string>
+	<string name="loading_content">Please wait while you content is loading</string>
 	<string name="drawer_open">My Feeds</string>
 	<string name="drawer_close">Close</string>
 	<string name="accesibility_rewind">rewind</string>

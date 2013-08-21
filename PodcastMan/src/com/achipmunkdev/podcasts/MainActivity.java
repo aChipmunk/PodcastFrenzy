@@ -14,6 +14,7 @@ import android.media.MediaPlayer.OnPreparedListener;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.ContentValues;
@@ -22,6 +23,7 @@ import android.content.Intent;
 import android.content.Loader;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.widget.DrawerLayout;
+import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -83,9 +85,11 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     private EntriesListFragment entriesListFragment; 
     
     private MediaControlsFragment mediaControlFragment = new MediaControlsFragment();
+    private Handler handler = new Handler();
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+    	handler.removeCallbacks(moveSeekBarThread);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
@@ -119,6 +123,7 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
             @Override
         	public void onPrepared(MediaPlayer mp) {
                 mp.start();
+                handler.postDelayed(moveSeekBarThread, 100);
             }
         });
         
@@ -153,8 +158,10 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     		showDialog(DIALOG_ALERT);
     		return true;
     	case R.id.action_refresh:
-    		lm.restartLoader(0, null, mCallbacks);
-    		new distinctFeedQuery().execute();
+    		getContentResolver().delete(EntriesContentProvider.CONTENT_URI, EntriesContentProvider.DROP_FULL_TABLE, null);
+    		new cacheAllEntries().execute();
+    		//lm.restartLoader(0, null, mCallbacks);
+    		//new distinctFeedQuery().execute();
     	default:
     		return super.onOptionsItemSelected(item);
     	}
@@ -291,7 +298,7 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 						ContentValues EntryValues = new ContentValues();
 						EntryValues.put(Constants.COLUMN_NAME_ENTRY_TITLE, entry.getTitle());
 						EntryValues.put(Constants.COLUMN_NAME_FEED_TITLE, result.getTitle());
-						EntryValues.put(Constants.COLUMN_NAME_DESCRIPTION, entry.getDescription().getValue());
+						EntryValues.put(Constants.COLUMN_NAME_DESCRIPTION, Html.fromHtml(entry.getDescription().getValue()).toString());
 						//EntryValues.put(Constants.COLUMN_NAME_CATAGORY, entry.getCategories().get(0).toString());
 						EntryValues.put(Constants.COLUMN_NAME_DATE, entry.getPublishedDate().getTime());
 						EntryValues.put(Constants.COLUMN_NAME_AUTHOR, entry.getAuthor());
@@ -430,7 +437,7 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     }
 
 	@Override
-	public void OnMediaButtonClick(int id) {
+	public void OnMediaButtonClick(int id, int seekPosition) {
 		
 		switch(id) {
 		case ButtonIds.FORWARD:
@@ -443,12 +450,64 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 			}
 			else{
 				mediaPlayer.start();
+				handler.post(moveSeekBarThread);
+				mediaPlayer.seekTo(seekPosition);
 				mediaControlFragment.setMediaPlaying(true);
+				//mediaControlFragment.setSeekBarPositionMax(mediaPlayer.getCurrentPosition(), mediaPlayer.getDuration());
+				
 			}
 			break;
 		case ButtonIds.REWIND:
 			
 			break;
+		case ButtonIds.SEEKBAR:
+			if (mediaPlayer.isPlaying()){
+				mediaPlayer.seekTo(seekPosition);
+			}
 		}
+	}
+	private Runnable moveSeekBarThread = new Runnable() {
+
+		@Override
+		public void run() {
+			if(mediaPlayer.isPlaying()){
+				int mediaPos_new = mediaPlayer.getCurrentPosition();
+		        int mediaMax_new = mediaPlayer.getDuration();
+		        mediaControlFragment.setSeekBarPositionMax(mediaPos_new, mediaMax_new);
+		        handler.postDelayed(moveSeekBarThread, 100);
+			}
+		}
+	};
+	
+	public class cacheAllEntries extends AsyncTask<String, Void, Cursor>{
+
+		@Override
+		protected Cursor doInBackground(String...strings) {
+			return getAllFeeds();
+		}
+		@Override
+    	protected void onPostExecute(Cursor cursor){
+			cursor.moveToFirst();
+			String url = null;
+			while (cursor.isAfterLast() == false) {
+
+				url = cursor.getString(cursor.getColumnIndex(Constants.COLUMN_NAME_FEED_URL));
+				GetAndWriteEntriesToDatabase(url);
+				if(cursor.isAfterLast() == false){
+					cursor.moveToNext();
+				}
+			}
+			
+			
+			cursor.close();
+			getLoaderManager().restartLoader(0, null, MainActivity.this);
+	    	new distinctFeedQuery().execute();
+		}
+	}
+	public Cursor getAllFeeds(){
+		AddedFeedsDbHelper userFeedsHelper = new AddedFeedsDbHelper(getBaseContext());
+		SQLiteDatabase DB = userFeedsHelper.getWritableDatabase();
+		return DB.query(true, Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_FEED_URL,  Constants.COLUMN_NAME_FEED_TITLE}, null, null, null, null, null, null);
+		
 	}
 }

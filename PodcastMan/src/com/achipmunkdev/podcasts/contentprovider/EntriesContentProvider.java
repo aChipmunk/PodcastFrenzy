@@ -23,6 +23,7 @@ public class EntriesContentProvider extends ContentProvider {
 	
 	private static final int ENTRIES = 10;
 	private static final int ENTRY_ID = 20;
+	public static final String DROP_FULL_TABLE = "dropfulltable";
 	
 	private static final String AUTHORITY = "com.achipmunkdev.podcasts.contentprovider";
 	private static final String BASE_PATH = "entris";
@@ -50,7 +51,12 @@ public class EntriesContentProvider extends ContentProvider {
 		int uriType = sURIMatcher.match(uri);
 		switch (uriType) {
 		case ENTRIES:
-			rowsDeleted = writeDB.delete(Constants.TABLE_NAME_ENTRIES, selection, selectionArgs);
+			if (selection == DROP_FULL_TABLE){
+				flushTable();
+			}
+			else{
+				rowsDeleted = writeDB.delete(Constants.TABLE_NAME_ENTRIES, selection, selectionArgs);
+			}
 			break;
 		case ENTRY_ID:
 			String id = uri.getLastPathSegment();
@@ -142,6 +148,11 @@ public class EntriesContentProvider extends ContentProvider {
 		} 
 		getContext().getContentResolver().notifyChange(uri, null);
 		return rowsUpdated;
+	}
+	public void flushTable(){
+		SQLiteDatabase writeDB = database.getWritableDatabase();
+		writeDB.execSQL(Constants.SQL_DELETE_ENTRIES);
+		database.onCreate(writeDB);
 	}
 
 }
