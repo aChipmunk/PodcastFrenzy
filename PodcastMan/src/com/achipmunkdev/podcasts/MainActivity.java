@@ -24,6 +24,7 @@ import android.content.Loader;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.widget.DrawerLayout;
 import android.text.Html;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -44,6 +45,7 @@ import android.app.AlertDialog.Builder;
 import android.app.Dialog;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.res.Configuration;
 import android.database.Cursor;
@@ -86,9 +88,11 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     
     private MediaControlsFragment mediaControlFragment = new MediaControlsFragment();
     private Handler handler = new Handler();
+    private ProgressDialog dialog; 
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+    	dialog = new ProgressDialog(MainActivity.this);
     	handler.removeCallbacks(moveSeekBarThread);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -303,8 +307,13 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 						EntryValues.put(Constants.COLUMN_NAME_DATE, entry.getPublishedDate().getTime());
 						EntryValues.put(Constants.COLUMN_NAME_AUTHOR, entry.getAuthor());
 						//EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, entry.getLink());
-						SyndEnclosure enc = (SyndEnclosure) entry.getEnclosures().get(0);
-						EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, enc.getUrl());
+						try{
+							SyndEnclosure enc = (SyndEnclosure) entry.getEnclosures().get(0);
+							EntryValues.put(Constants.COLUMN_NAME_CONTENT_URL, enc.getUrl());
+						}catch (Exception e){
+							Log.d("PODCASTFRENZY", "error with enc url");
+						}
+						
 						EntryValues.put(Constants.COLUMN_NAME_MEDIA_TYPE, entry.getUri());
 						
 						Uri entriesURI = getContentResolver().insert(EntriesContentProvider.CONTENT_URI, EntryValues);
@@ -414,15 +423,19 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     	}
     }
     final class updateDrawer extends AsyncTask<SQLiteDatabase, Void, Cursor>{
+
+    	
     	@Override
 		protected Cursor doInBackground(SQLiteDatabase... db){
     		//return db[0].rawQuery("SELECT " + Constants.COLUMN_NAME_TITLE + " FROM " + Constants.USER_ADDED_FEEDS, null);
     		return db[0].query(Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_FEED_TITLE}, null, null, Constants.COLUMN_NAME_FEED_TITLE, null, null, null);
+    		
     	}
     	@Override
     	protected void onPostExecute(Cursor dbCursor){
     		if(dbCursor!=null && dbCursor.getCount()>0){
     			dbCursor.moveToFirst();
+    			listOfFeeds.clear();
     			listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_FEED_TITLE)));
     			for(dbCursor.moveToFirst(); dbCursor.moveToNext(); dbCursor.isAfterLast()){
     				listOfFeeds.add(dbCursor.getString(dbCursor.getColumnIndex(Constants.COLUMN_NAME_FEED_TITLE)));
@@ -433,6 +446,7 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
     			listOfFeeds.add("No Feeds! Try adding some.");
     		}
         	mDrawerList.setAdapter(new ArrayAdapter<String>(MainActivity.this, R.layout.drawer_item, listOfFeeds));
+        	
     	}
     }
 
@@ -480,6 +494,16 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 	};
 	
 	public class cacheAllEntries extends AsyncTask<String, Void, Cursor>{
+		
+
+		@Override
+		protected void onPreExecute() {
+			//dialog = new ProgressDialog(MainActivity.this);
+			dialog.setMessage("Loading your feeds...");
+			dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+			dialog.setIndeterminate(true);
+		    dialog.show();
+    	}
 
 		@Override
 		protected Cursor doInBackground(String...strings) {
@@ -487,21 +511,24 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 		}
 		@Override
     	protected void onPostExecute(Cursor cursor){
+			
 			cursor.moveToFirst();
 			String url = null;
 			while (cursor.isAfterLast() == false) {
-
 				url = cursor.getString(cursor.getColumnIndex(Constants.COLUMN_NAME_FEED_URL));
 				GetAndWriteEntriesToDatabase(url);
+				dialog.setMessage(cursor.getString(cursor.getColumnIndex(Constants.COLUMN_NAME_FEED_TITLE)));
 				if(cursor.isAfterLast() == false){
 					cursor.moveToNext();
 				}
-			}
-			
-			
+			}						
 			cursor.close();
+			dialog.setMessage("finishing up");
 			getLoaderManager().restartLoader(0, null, MainActivity.this);
 	    	new distinctFeedQuery().execute();
+	    	if (dialog.isShowing()) {
+	            dialog.dismiss();
+	        }
 		}
 	}
 	public Cursor getAllFeeds(){
@@ -510,4 +537,6 @@ public class MainActivity extends Activity  implements LoaderManager.LoaderCallb
 		return DB.query(true, Constants.USER_ADDED_FEEDS, new String[]{Constants._ID, Constants.COLUMN_NAME_FEED_URL,  Constants.COLUMN_NAME_FEED_TITLE}, null, null, null, null, null, null);
 		
 	}
+
+	
 }
